@@ -45,8 +45,52 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include <QPushButton>
 #include <QJsonArray>
 #include <QDebug>
+#include <QLineEdit>
 
-SC_TableEdit::SC_TableEdit(QString theKey, QStringList colHeadings, int numRows, QStringList dataValues)
+
+SpinBoxDelegate::SpinBoxDelegate(QObject *parent)
+    : QStyledItemDelegate(parent)
+{
+}
+
+QWidget *SpinBoxDelegate::createEditor(QWidget *parent,
+                                       const QStyleOptionViewItem &/* option */,
+                                       const QModelIndex &/* index */) const
+{
+    QLineEdit *editor = new QLineEdit(parent);
+    editor->setFrame(false);
+    editor->setValidator(new QDoubleValidator());
+    return editor;
+}
+
+void SpinBoxDelegate::setEditorData(QWidget *editor,
+                                    const QModelIndex &index) const
+{
+    QString value = index.model()->data(index, Qt::EditRole).toString();
+
+    QLineEdit *spinBox = static_cast<QLineEdit*>(editor);
+    spinBox->setText(value);
+}
+
+void SpinBoxDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
+                                   const QModelIndex &index) const
+{
+    QLineEdit *spinBox = static_cast<QLineEdit*>(editor);
+    QString value = spinBox->text();
+
+    model->setData(index, value, Qt::EditRole);
+}
+
+void SpinBoxDelegate::updateEditorGeometry(QWidget *editor,
+                                           const QStyleOptionViewItem &option,
+                                           const QModelIndex &/* index */) const
+{
+    editor->setGeometry(option.rect);
+}
+
+
+
+SC_TableEdit::SC_TableEdit(QString theKey, QStringList colHeadings, int numRows, QStringList dataValues, bool doubleVal, int startColumn, bool addRemove)
   :QWidget()
 {
   key = theKey;
@@ -55,15 +99,24 @@ SC_TableEdit::SC_TableEdit(QString theKey, QStringList colHeadings, int numRows,
   int numCols = 0;
   foreach (const QString &theHeading, colHeadings) {
     headings << theHeading;
+
     numCols++;
   }
 
   theTable = new QTableWidget();
+
   theTable->setColumnCount(numCols);
   theTable->setRowCount(numRows);
   theTable->setHorizontalHeaderLabels(headings);
   theTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
   theTable->verticalHeader()->setVisible(false);
+  
+  for (int i=0; i<numCols; i++){
+      if (doubleVal == true && numCols >= startColumn){
+        SpinBoxDelegate *delegate = new SpinBoxDelegate();
+        theTable->setItemDelegateForColumn(i, delegate);
+    }
+  }
 
   // fill in data
   for (int i=0; i<numRows; i++) {
@@ -80,8 +133,11 @@ SC_TableEdit::SC_TableEdit(QString theKey, QStringList colHeadings, int numRows,
  
   QGridLayout *layout = new QGridLayout();
   layout->addWidget(theTable, 0,0);
-  layout->addWidget(addB,0,1);
-  layout->addWidget(delB,0,2);  
+
+  if (addRemove == true){
+    layout->addWidget(addB,0,1);
+    layout->addWidget(delB,0,2);
+  }  
   
   this->setLayout(layout);
 
