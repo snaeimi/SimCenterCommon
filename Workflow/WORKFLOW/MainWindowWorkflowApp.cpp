@@ -14,6 +14,7 @@
 #include "Utils/dialogabout.h"
 #include "WorkflowAppWidget.h"
 #include <ZipUtils.h>
+#include <RunPythonInThread.h>
 
 #include <QAction>
 #include <QApplication>
@@ -38,6 +39,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QSettings>
+#include <QCoreApplication>
 
 #include <SectionTitle.h>
 
@@ -178,18 +180,14 @@ MainWindowWorkflowApp::MainWindowWorkflowApp(QString appName, WorkflowAppWidget 
 
     this->setCentralWidget(centralWidget);
 
-    theWorkflowAppWidget->setMainWindow(this);
-
-
     //
     // Example Downloader
     //
+    
     _exampleDownloader = exampleDownloader;
     if (exampleDownloader) {
         theExampleDownloader = new ExampleDownloader(this);
     }
-    this->updateExamplesMenu();
-    
     
     //
     // Program Helper/ Output Dock
@@ -369,7 +367,28 @@ MainWindowWorkflowApp::MainWindowWorkflowApp(QString appName, WorkflowAppWidget 
       ");
 
     this->createActions();
+    this->updateExamplesMenu(true);
+    theWorkflowAppWidget->setMainWindow(this);
+
+    //
+    // some code to run an app_init.py script at startup if present in app dir
+    //
     
+    QString appInitScript = QCoreApplication::applicationDirPath() + QDir::separator() + "app_init.py";
+    
+    QFile appInitFile(appInitScript);
+    if (appInitFile.exists()) {
+      runButton->setEnabled(false);
+      runDesignSafeButton->setEnabled(false);
+      QStringList args;
+      // runs appInit.py with 0 args using the applications own dir as working dir
+      RunPythonInThread *thePythonProcess = new RunPythonInThread(appInitScript, args, QCoreApplication::applicationDirPath()); 
+      connect(thePythonProcess, &RunPythonInThread::processFinished, this, [=](){
+	runButton->setEnabled(true);
+	runDesignSafeButton->setEnabled(true);
+      });
+      thePythonProcess->runProcess();
+    }
 }
 
 MainWindowWorkflowApp::~MainWindowWorkflowApp()
@@ -562,12 +581,30 @@ void MainWindowWorkflowApp::loadFile(QString &fileName)
 }
 
 
-void MainWindowWorkflowApp::updateExamplesMenu(void)
+void MainWindowWorkflowApp::updateExamplesMenu(bool placeBeforeHelp)
 {
-    if(exampleMenu == nullptr)
+  
+    if(exampleMenu == nullptr) {
+      if (placeBeforeHelp == false) {
         exampleMenu = menuBar()->addMenu(tr("&Examples"));
-    else
+	
+      } else {
+	
+	QAction* menuAfter = nullptr;
+	foreach (QAction *action, menuBar()->actions()) {
+	  QString actionText = action->text();
+	  if(actionText.compare("&Help") == 0) {
+	    menuAfter = action;
+	    break;
+	  }
+	}
+	exampleMenu = new QMenu(tr("&Examples"));	  
+	menuBar()->insertMenu(menuAfter, exampleMenu);    	  
+      }
+      
+    } else
         exampleMenu->clear();
+
     if (_exampleDownloader) {
         exampleMenu->addAction("Manage Examples", this, &MainWindowWorkflowApp::showExampleDownloader);
         exampleMenu->addSeparator();
@@ -619,6 +656,7 @@ void MainWindowWorkflowApp::updateExamplesMenu(void)
 
 
 void MainWindowWorkflowApp::createActions() {
+  
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
 
 
