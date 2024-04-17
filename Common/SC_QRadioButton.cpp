@@ -42,7 +42,6 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 SC_QRadioButton::SC_QRadioButton(QString theKey, QWidget *parent)
   :QRadioButton(parent)
 {
-    qDebug() << "Sina - Constructor";
     key = theKey;
 }
 
@@ -62,7 +61,6 @@ SC_QRadioButton::~SC_QRadioButton()
 bool
 SC_QRadioButton::outputToJSON(QJsonObject &jsonObject)
 {
-    qDebug() << "Sina - outputToJSON";
   jsonObject[key]=this->isChecked();
   return true;
 }
@@ -70,7 +68,6 @@ SC_QRadioButton::outputToJSON(QJsonObject &jsonObject)
 bool
 SC_QRadioButton::inputFromJSON(QJsonObject &jsonObject)
 {
-    qDebug() << "Sina - inputFromJSON";
   if (jsonObject.contains(key)) {
     QJsonValue theValue = jsonObject[key];
     if (theValue.isBool())
